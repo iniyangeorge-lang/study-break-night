@@ -186,3 +186,64 @@ p { margin: 0 0 0.75rem; }
 
 .actions .btn:first-child { margin-top: 0; }
 .actions .link-btn { text-align: center; }
+
+.notice--info { background: var(--accent-soft); color: var(--text); }
+.actions__hint { text-align: center; font-size: 0.85rem; color: var(--muted); margin: 6px 0 0; }
+
+/* ---------- check-in confirmation (shown to staff) ---------- */
+.checked {
+  min-height: 100vh;
+  min-height: 100dvh;
+  background: var(--ok);
+  color: #fff;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 32px 16px;
+}
+.checked__tick {
+  width: 88px;
+  height: 88px;
+  border-radius: 50%;
+  background: #fff;
+  color: var(--ok);
+  font-size: 3.2rem;
+  font-weight: 800;
+  display: grid;
+  place-items: center;
+  margin-bottom: 16px;
+}
+.checked__label { font-size: 1.1rem; font-weight: 600; opacity: 0.9; margin: 0; }
+.checked__name { font-size: 2rem; margin: 4px 0 20px; overflow-wrap: anywhere; }
+.checked__number {
+  background: #fff;
+  color: var(--text);
+  border-radius: 20px;
+  padding: 12px 36px 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.checked__number-label { font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); }
+.checked__number-value { font-size: 5rem; font-weight: 800; line-height: 1; font-variant-numeric: tabular-nums; }
+.checked__meta { margin: 16px 0 8px; opacity: 0.9; }
+.checked__clock {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 1.4rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  margin-bottom: 16px;
+}
+.checked__pulse {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #fff;
+  animation: pulse 1s ease-in-out infinite alternate;
+}
+@keyframes pulse { from { opacity: 1; } to { opacity: 0.25; } }
+.checked__hint { max-width: 320px; margin: 0; }

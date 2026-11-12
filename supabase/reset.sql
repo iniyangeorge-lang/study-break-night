@@ -4,6 +4,8 @@
 -- Do NOT run this after RSVPs have opened.
 -- =====================================================================
 
+drop function if exists public._clean_name(text);
+drop function if exists public._new_cancel_code();
 drop table if exists public.attendees cascade;
 drop table if exists public.settings  cascade;
 drop table if exists public.admins    cascade;
@@ -18,5 +20,3 @@ drop function if exists public.public_stats();
 drop function if exists public.is_admin();
 drop function if exists public._check_in(text, text, boolean);
 drop function if exists public._normalize_identifier(text);
-drop function if exists public._clean_name(text);
-drop function if exists public._new_cancel_code();

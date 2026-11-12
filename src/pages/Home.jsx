@@ -51,18 +51,17 @@ export default function Home() {
           Reserve your spot
         </button>
 
-        {checkin === 'open' ? (
-          <Link className="btn btn--secondary" to="/checkin">
-            Check in
-          </Link>
-        ) : (
-          <button className="btn btn--secondary" type="button" disabled>
+        <Link className="btn btn--secondary" to="/checkin">
+          Check in
+        </Link>
+        {checkin !== 'open' && (
+          <p className="actions__hint">
             {checkin === 'after'
               ? 'Check-in has closed'
               : stats?.checkin_opens
-                ? `Check-in opens ${formatDateTime(stats.checkin_opens)}`
-                : 'Check-in opens on the day of the event'}
-          </button>
+                ? `Opens ${formatDateTime(stats.checkin_opens)}`
+                : 'Opens on the day of the event'}
+          </p>
         )}
 
         <Link className="link-btn" to="/cancel">
