@@ -57,3 +57,71 @@ export function adminCheckIn({ identifier, name }) {
 export function publicStats() {
   return call('public_stats');
 }
+
+// ---------------------------------------------------------------------
+// Organiser-only (needs a logged-in user who is in the admins table)
+// ---------------------------------------------------------------------
+
+function requireClient() {
+  if (!supabase) throw new Error(configError);
+  return supabase;
+}
+
+export async function signIn({ email, password }) {
+  const { error } = await requireClient().auth.signInWithPassword({ email, password });
+  if (error) throw error;
+}
+
+export async function signOut() {
+  await requireClient().auth.signOut();
+}
+
+/** true if the logged-in user is in the admins table */
+export function isAdmin() {
+  return call('is_admin');
+}
+
+/**
+ * Everyone who signed up or walked in, oldest first.
+ * Readable only by admins (RLS policy "admins read attendees").
+ */
+export async function listAttendees() {
+  const { data, error } = await requireClient()
+    .from('attendees')
+    .select('id, name, identifier, type, created_at, checked_in_at, cup_number, checked_in_by')
+    .order('created_at', { ascending: true });
+  if (error) throw error;
+  return data;
+}
+
+/**
+ * Remove a booking.
+ * status: ok (+name) | not_found | checked_in | forbidden
+ */
+export function removeAttendee(id) {
+  return call('admin_remove_attendee', { p_id: id });
+}
+
+/**
+ * Set the number of spots (max sign-ups AND max check-ins).
+ * status: ok (+spots) | invalid | too_low (+minimum) | forbidden
+ */
+export function setSpots(spots) {
+  return call('admin_set_spots', { p_spots: spots });
+}
+
+/**
+ * Open (true) or close (false) check-in, starting now.
+ * status: ok (+opens_at, closes_at) | forbidden
+ */
+export function setCheckinOpen(open) {
+  return call('admin_set_checkin', { p_open: open });
+}
+
+/**
+ * Allow (true) or stop (false) walk-ins: people without a booking checking in.
+ * status: ok (+release_at) | forbidden
+ */
+export function setWalkinsAllowed(allow) {
+  return call('admin_set_walkins', { p_allow: allow });
+}

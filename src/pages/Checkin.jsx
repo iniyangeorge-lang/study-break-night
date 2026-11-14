@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { checkIn } from '../lib/api';
 import { formatDateTime, formatTime } from '../lib/format';
@@ -125,9 +125,8 @@ export default function Checkin() {
   );
 }
 
-// Big, bright screen to show staff. The live clock proves it's not an old screenshot.
+// Big, bright screen to show staff.
 export function Confirmed({ result }) {
-  const now = useNow();
   const already = result.status === 'already';
   return (
     <main className="checked">
@@ -143,11 +142,6 @@ export function Confirmed({ result }) {
       <p className="checked__meta">
         {result.type === 'walkin' ? 'Walk-in' : 'Booked'} · checked in at {formatTime(result.checked_in_at)}
       </p>
-
-      <div className="checked__clock" aria-label="Current time">
-        <span className="checked__pulse" aria-hidden="true" />
-        {now.toLocaleTimeString('en-SG', { timeZone: 'Asia/Singapore' })}
-      </div>
 
       <p className="checked__hint">Show this screen to staff to collect your bubble tea and snacks 🧋</p>
     </main>
@@ -196,14 +190,4 @@ export function Outcome({ result, onBack }) {
       </section>
     </main>
   );
-}
-
-// Current time, updated every second.
-function useNow() {
-  const [now, setNow] = useState(() => new Date());
-  useEffect(() => {
-    const id = setInterval(() => setNow(new Date()), 1000);
-    return () => clearInterval(id);
-  }, []);
-  return now;
 }

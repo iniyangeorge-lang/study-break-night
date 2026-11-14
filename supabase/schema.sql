@@ -354,6 +354,169 @@ $$;
 
 
 -- ---------------------------------------------------------------------
+-- admin_remove_attendee(id)  (organisers only)
+--   -> ok (+name) | not_found | checked_in | forbidden
+-- Refuses once someone has checked in: their spot has been used, and
+-- deleting them would let one extra person past the cap.
+-- ---------------------------------------------------------------------
+create or replace function public.admin_remove_attendee(
+  p_id bigint
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  a        public.attendees%rowtype;
+  v_found  boolean;
+begin
+  if not public.is_admin() then
+    return jsonb_build_object('status', 'forbidden');
+  end if;
+
+  perform 1 from public.settings where id = 1 for update;
+
+  select * into a from public.attendees where id = p_id;
+  v_found := found;   -- save FOUND immediately
+
+  if not v_found then
+    return jsonb_build_object('status', 'not_found');
+  end if;
+
+  if a.checked_in_at is not null then
+    return jsonb_build_object('status', 'checked_in');
+  end if;
+
+  delete from public.attendees where id = a.id;
+  return jsonb_build_object('status', 'ok', 'name', a.name);
+end
+$$;
+
+
+-- ---------------------------------------------------------------------
+-- admin_set_spots(n)  (organisers only)
+--   -> ok (+spots) | invalid | too_low (+minimum) | forbidden
+-- One number for both limits: max sign-ups (rsvp_cap) and max check-ins
+-- (cap). Can't go below the people already signed up / checked in.
+-- ---------------------------------------------------------------------
+create or replace function public.admin_set_spots(
+  p_spots int
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_min int;
+begin
+  if not public.is_admin() then
+    return jsonb_build_object('status', 'forbidden');
+  end if;
+
+  perform 1 from public.settings where id = 1 for update;
+
+  if p_spots is null or p_spots < 0 or p_spots > 10000 then
+    return jsonb_build_object('status', 'invalid');
+  end if;
+
+  select greatest(
+           count(*) filter (where type = 'rsvp'),
+           count(*) filter (where checked_in_at is not null)
+         )
+    into v_min
+  from public.attendees;
+
+  if p_spots < v_min then
+    return jsonb_build_object('status', 'too_low', 'minimum', v_min);
+  end if;
+
+  update public.settings
+     set rsvp_cap = p_spots, cap = p_spots, updated_at = now()
+   where id = 1;
+
+  return jsonb_build_object('status', 'ok', 'spots', p_spots);
+end
+$$;
+
+
+-- ---------------------------------------------------------------------
+-- admin_set_checkin(open)  (organisers only)
+--   -> ok (+opens_at, closes_at) | forbidden
+-- open = true:  check-in opens now, with no end time.
+-- open = false: check-in closes now.
+-- ---------------------------------------------------------------------
+create or replace function public.admin_set_checkin(
+  p_open boolean
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  s public.settings%rowtype;
+begin
+  if not public.is_admin() then
+    return jsonb_build_object('status', 'forbidden');
+  end if;
+
+  perform 1 from public.settings where id = 1 for update;
+
+  if p_open then
+    update public.settings
+       set checkin_opens = now(), checkin_closes = null, updated_at = now()
+     where id = 1
+    returning * into s;
+  else
+    update public.settings
+       set checkin_closes = now(), updated_at = now()
+     where id = 1
+    returning * into s;
+  end if;
+
+  return jsonb_build_object('status', 'ok', 'opens_at', s.checkin_opens, 'closes_at', s.checkin_closes);
+end
+$$;
+
+
+-- ---------------------------------------------------------------------
+-- admin_set_walkins(allow)  (organisers only)
+--   -> ok (+release_at) | forbidden
+-- allow = true:  people without a booking can check in from now on.
+-- allow = false: back to booked people only (walk-ins already checked
+--                in keep their spot).
+-- ---------------------------------------------------------------------
+create or replace function public.admin_set_walkins(
+  p_allow boolean
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_release timestamptz;
+begin
+  if not public.is_admin() then
+    return jsonb_build_object('status', 'forbidden');
+  end if;
+
+  perform 1 from public.settings where id = 1 for update;
+
+  update public.settings
+     set release_at = case when p_allow then now() else null end,
+         updated_at = now()
+   where id = 1
+  returning release_at into v_release;
+
+  return jsonb_build_object('status', 'ok', 'release_at', v_release);
+end
+$$;
+
+
+-- ---------------------------------------------------------------------
 -- public_stats()  (counts only, no personal data)
 -- ---------------------------------------------------------------------
 create or replace function public.public_stats()
@@ -403,14 +566,14 @@ drop policy if exists "read own admin row"      on public.admins;
 create policy "admins read attendees" on public.attendees
   for select to authenticated using (public.is_admin());
 
-create policy "admins delete attendees" on public.attendees
-  for delete to authenticated using (public.is_admin());
+-- (No delete policy: organisers remove people through admin_remove_attendee(),
+--  which refuses once someone has checked in.)
 
 create policy "admins read settings" on public.settings
   for select to authenticated using (public.is_admin());
 
-create policy "admins update settings" on public.settings
-  for update to authenticated using (public.is_admin()) with check (public.is_admin());
+-- (No update policy: organisers change settings through admin_set_spots()
+--  and admin_set_checkin(), which check the values first.)
 
 create policy "read own admin row" on public.admins
   for select to authenticated using (user_id = auth.uid());
@@ -428,4 +591,8 @@ grant execute on function public.rsvp(text, text)             to anon, authentic
 grant execute on function public.cancel_rsvp(text)            to anon, authenticated;
 grant execute on function public.check_in(text, text)         to anon, authenticated;
 grant execute on function public.admin_check_in(text, text)   to authenticated;
+grant execute on function public.admin_remove_attendee(bigint) to authenticated;
+grant execute on function public.admin_set_spots(int)         to authenticated;
+grant execute on function public.admin_set_checkin(boolean)   to authenticated;
+grant execute on function public.admin_set_walkins(boolean)   to authenticated;
 grant execute on function public.is_admin()                   to authenticated;  -- used by RLS policies

@@ -103,6 +103,56 @@ select pg_temp.expect(public.admin_check_in('e8888888@u.nus.edu'), 'status', 'ne
 select pg_temp.expect(public.admin_check_in('e8888888@u.nus.edu', 'Late'), 'cup_number', '5', 'admin skips window + release');
 select pg_temp.expect(public.admin_check_in('e7777777@u.nus.edu', 'Later'), 'status', 'no_cups', 'admin still respects cap');
 select pg_temp.expect(jsonb_build_object('n', (select count(*) from public.attendees)), 'n', '5', 'admin can read attendees');
+-- remove
+select pg_temp.expect(public.admin_remove_attendee(id), 'status', 'checked_in', 'cannot remove checked-in person')
+  from public.attendees where identifier = 'e8888888@u.nus.edu';
+reset role;
+insert into public.attendees (name, identifier, type) values ('Spam', 'spam@u.nus.edu', 'rsvp');
+set role authenticated;
+select pg_temp.expect(public.admin_remove_attendee(id), 'status', 'ok', 'admin removes booking')
+  from public.attendees where identifier = 'spam@u.nus.edu';
+select pg_temp.expect(public.admin_remove_attendee(999999), 'status', 'not_found', 'remove unknown id');
+do $$
+begin
+  delete from public.attendees;
+  if (select count(*) from public.attendees) = 0 then raise exception 'FAIL: admin deleted rows directly'; end if;
+  raise notice 'pass: direct delete blocked (no delete policy)';
+end $$;
+-- settings
+select pg_temp.expect(public.admin_set_spots(-1), 'status', 'invalid', 'spots negative');
+select pg_temp.expect(public.admin_set_spots(2), 'status', 'too_low', 'spots below people already in');
+select pg_temp.expect(public.admin_set_spots(2), 'minimum', '5', 'too_low reports minimum');
+select pg_temp.expect(public.admin_set_spots(200), 'status', 'ok', 'set spots');
+select pg_temp.expect(public.public_stats(), 'rsvp_cap', '200', 'spots sets rsvp_cap');
+select pg_temp.expect(public.public_stats(), 'cap', '200', 'spots sets cap');
+select pg_temp.expect(public.admin_set_checkin(false), 'status', 'ok', 'close check-in');
+reset role;
+set role anon;
+select pg_temp.expect(public.check_in('e7777777@u.nus.edu', 'X'), 'status', 'not_open', 'closed by admin');
+reset role;
+set role authenticated;
+select pg_temp.expect(public.admin_set_checkin(true), 'closes_at', '<null>', 'open check-in clears close time');
+select pg_temp.expect(public.admin_set_walkins(false), 'release_at', '<null>', 'walk-ins off clears release');
+reset role;
+set role anon;
+select pg_temp.expect(public.check_in('e7777777@u.nus.edu', 'X'), 'status', 'walkins_not_yet', 'walk-in blocked before button');
+reset role;
+set role authenticated;
+select pg_temp.expect(public.admin_set_walkins(true), 'status', 'ok', 'allow walk-ins');
+reset role;
+set role anon;
+select pg_temp.expect(public.check_in('e7777777@u.nus.edu', 'X'), 'status', 'ok', 'walk-in allowed after button');
+reset role;
+set role authenticated;
+do $$
+begin
+  update public.settings set cap = 999;
+  if (select cap from public.settings) = 999 then raise exception 'FAIL: admin updated settings directly'; end if;
+  raise notice 'pass: direct settings update blocked';
+exception when insufficient_privilege then
+  raise notice 'pass: direct settings update blocked';
+end $$;
+select pg_temp.expect(public.admin_set_spots(6), 'status', 'ok', 'spots back to 6 (everyone in)');
 reset role;
 set test.uid = '';
 
@@ -126,6 +176,10 @@ exception when insufficient_privilege then
 end $$;
 reset role;
 set role authenticated;   -- logged in, but not an admin
+select pg_temp.expect(public.admin_remove_attendee(1), 'status', 'forbidden', 'non-admin cannot remove');
+select pg_temp.expect(public.admin_set_spots(10), 'status', 'forbidden', 'non-admin cannot set spots');
+select pg_temp.expect(public.admin_set_checkin(true), 'status', 'forbidden', 'non-admin cannot open check-in');
+select pg_temp.expect(public.admin_set_walkins(true), 'status', 'forbidden', 'non-admin cannot allow walk-ins');
 select pg_temp.expect(jsonb_build_object('n', (select count(*) from public.attendees)), 'n', '0', 'non-admin sees no attendees');
 reset role;
 
