@@ -27,6 +27,7 @@ green confirmation screen to staff. Organisers watch everything from a dashboard
 | `/checkin` | Students, on the night | Enter NUS email → big green confirmation screen with their number |
 | `/admin` | Organisers | Login, live counts, list of everyone, remove people, open check-in, allow walk-ins, set spots |
 
+### Rules
 
 **Signing up**
 - One booking per NUS email. Email is the only identifier: capitals and spaces are ignored, so
@@ -76,9 +77,6 @@ Each organiser needs a login, created in Supabase:
    ```
 3. They go to `/admin` and log in.
 
-
-```
-
 ### The dashboard (`/admin`)
 - **Signed up** (x / spots) and **Checked in** (x / spots). Refreshes every 10 seconds.
 - **Check-in**: *Open check-in now* / *Close check-in*. 
@@ -90,15 +88,13 @@ Each organiser needs a login, created in Supabase:
   - Checked-in people show their number and time (e.g. `#12 · 7:14pm`).
 
 ### Running the night
-1. **Before**: print the sign-up list as a backup (see below). Put the QR code (pointing to `/checkin`) at the
-   foyer.
+1. **Before**: put the QR code (pointing to `/checkin`) at the foyer.
 2. **~7pm**: press **Open check-in now**.
 3. **People arrive**: they scan, type their email, and show the green screen. Staff hand over bubble tea + snacks
    and can glance at the name and number.
 4. **~7:45pm** (or when most booked people are in): compare *Signed up* vs *Checked in* on the dashboard,
    then press **Allow walk-ins now**.
 5. **End**: press **Close check-in**.
-
 
 ### Things only changeable in code or SQL
 | What | Where |
@@ -173,7 +169,6 @@ What Supabase gives us:
 | Env vars missing on Vercel | Site shows "Setup needed" | Set the three `VITE_` variables in Vercel → Settings → Environment Variables, then redeploy |
 | Organiser account not in `admins` | "Not an organiser" on `/admin` | See [Getting access](#getting-access) |
 
-
 ### Known limitations (by design)
 - **Email ownership isn't verified.** The site checks the email's *format*, not that the person owns it
   (no verification email is sent). Someone could sign up with, or **cancel**, another person's booking if
@@ -216,6 +211,8 @@ To test the "full" flow on the real project, `supabase/seed_149.sql` creates 149
 ```sql
 delete from public.attendees where identifier like 'seed.test.%@u.nus.edu';
 ```
+
+---
 
 ## Project structure
 
