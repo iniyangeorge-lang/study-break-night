@@ -8,6 +8,10 @@ export default function Home() {
   const navigate = useNavigate();
   const { stats } = usePublicStats();
   const checkin = checkinState(stats);
+  // Grey out Check in until an organiser opens it. Only once stats have
+  // loaded: if they fail to load, keep the button usable (check_in() in
+  // the database still enforces the window).
+  const checkinDisabled = !!stats && checkin !== 'open';
 
   // If we already know sign-ups are full/closed, skip straight to that page.
   // (The sign-up page double-checks, in case stats hadn't loaded yet.)
@@ -51,10 +55,16 @@ export default function Home() {
           Reserve your spot
         </button>
 
-        <Link className="btn btn--secondary" to="/checkin">
-          Check in
-        </Link>
-        {checkin !== 'open' && (
+        {checkinDisabled ? (
+          <button className="btn btn--secondary" type="button" disabled>
+            Check in
+          </button>
+        ) : (
+          <Link className="btn btn--secondary" to="/checkin">
+            Check in
+          </Link>
+        )}
+        {checkinDisabled && (
           <p className="actions__hint">
             {checkin === 'after'
               ? 'Check-in has closed'
