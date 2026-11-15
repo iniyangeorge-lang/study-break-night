@@ -271,9 +271,6 @@ truncate public.attendees restart identity;
 update public.settings set checkin_opens = null, checkin_closes = null, release_at = null;
 ```
 
-### Starting over
-`supabase/reset.sql` deletes all tables, functions and data. Run it, then `schema.sql` again. Only before launch.
-
 ---
 
 ## Project structure
@@ -301,7 +298,6 @@ src/
 
 supabase/
   schema.sql            tables, ALL rules (SQL functions), security. Safe to re-run
-  reset.sql             DANGER: deletes everything
   seed_149.sql          149 fake sign-ups for testing
   tests/
     logic_test.sql      rule checks (local only)

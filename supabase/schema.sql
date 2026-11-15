@@ -3,8 +3,7 @@
 --
 -- Run this whole file in the Supabase SQL editor.
 -- Safe to re-run: tables are only created if missing, functions and
--- policies are replaced. (To wipe everything and start over, run
--- supabase/reset.sql first.)
+-- policies are replaced. Existing data is kept.
 --
 -- Design:
 --   * ALL event rules live in the SQL functions below. The frontend
