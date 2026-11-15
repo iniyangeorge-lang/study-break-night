@@ -27,7 +27,6 @@ green confirmation screen to staff. Organisers watch everything from a dashboard
 | `/checkin` | Students, on the night | Enter NUS email → big green confirmation screen with their number |
 | `/admin` | Organisers | Login, live counts, list of everyone, remove people, open check-in, allow walk-ins, set spots |
 
-### The rules
 
 **Signing up**
 - One booking per NUS email. Email is the only identifier: capitals and spaces are ignored, so
@@ -36,7 +35,7 @@ green confirmation screen to staff. Organisers watch everything from a dashboard
   (`@u.nus.edu`, `@nus.edu.sg`, `@comp.nus.edu.sg`, …).
 - Sign-ups stop when the number of bookings reaches **spots** (150 by default). After that, anyone clicking
   **Reserve your spot** goes straight to the "all spots are filled" page.
-- Signing up again with the same email shows "You've already signed up!". It never creates a second booking.
+- Signing up again with the same email shows "You've already signed up!". 
 
 **Cancelling**
 - Only the email is needed. The booking is deleted and the spot becomes available to someone else.
@@ -75,20 +74,16 @@ Each organiser needs a login, created in Supabase:
    insert into public.admins (user_id)
    select id from auth.users where email = 'their-email@example.com';
    ```
-   It should say **1 row** affected. If 0, the email doesn't match exactly.
 3. They go to `/admin` and log in.
 
-Logged in but seeing "Not an organiser"? Step 2 is missing. Check with:
-```sql
-select u.email, a.user_id is not null as is_organiser
-from auth.users u left join public.admins a on a.user_id = u.id;
+
 ```
 
 ### The dashboard (`/admin`)
 - **Signed up** (x / spots) and **Checked in** (x / spots). Refreshes every 10 seconds.
-- **Check-in**: *Open check-in now* / *Close check-in*. The Home page and check-in page follow immediately.
-- **Walk-ins**: *Allow walk-ins now* / *Stop walk-ins*. Stopping doesn't affect walk-ins already checked in.
-- **Spots**: one number that sets both the max sign-ups and the max check-ins. It can't go below the number
+- **Check-in**: *Open check-in now* / *Close check-in*. 
+- **Walk-ins**: *Allow walk-ins now* / *Stop walk-ins*. 
+- **Spots**: Number that sets both the max sign-ups and the max check-ins. It can't go below the number
   of people already signed up or checked in.
 - **List**: search by name or email, filter by *Not checked in* / *Checked in*.
   - **Remove** deletes a booking. Only possible for people who haven't checked in.
@@ -103,13 +98,7 @@ from auth.users u left join public.admins a on a.user_id = u.id;
 4. **~7:45pm** (or when most booked people are in): compare *Signed up* vs *Checked in* on the dashboard,
    then press **Allow walk-ins now**.
 5. **End**: press **Close check-in**.
-6. **After the event**: delete everyone's data (see [After the event](#after-the-event)).
 
-**Printed backup list** (SQL Editor, then download the result as CSV):
-```sql
-select name, identifier as email, type, cup_number, checked_in_at
-from public.attendees order by name;
-```
 
 ### Things only changeable in code or SQL
 | What | Where |
@@ -117,30 +106,15 @@ from public.attendees order by name;
 | Event title, date, time, venue, menu | `src/config.js` (then redeploy) |
 | "Spot held until 7:45pm" text, before walk-ins are allowed | `defaultReleaseLabel` in `src/config.js` |
 | Telegram channel link | `VITE_TELEGRAM_CHANNEL_URL` env var |
-| Switch sign-ups off without being full | SQL: `update public.settings set rsvp_open = false;` |
 | Allowed email domains | `_normalize_identifier` in `supabase/schema.sql` |
 
 ---
 
 ## How it works
 
-```
- Phone browser (React)                      Supabase (Postgres)
- ─────────────────────                      ───────────────────
- pages/*.jsx                                SQL functions in schema.sql
-   │  show a screen per status                rsvp(), cancel_rsvp(), check_in(),
-   ▼                                          public_stats(), admin_*()
- lib/api.js  ── supabase.rpc('rsvp', …) ──►     │  checks every rule
-                                                ▼
-             ◄── { status: 'ok', … } ───────  tables: settings, attendees, admins
-```
-
 ### 1. All rules live in the database
-The website never decides anything. Every action calls one SQL function, which checks the rules and returns
-a `status` (`ok`, `full`, `already_registered`, `no_cups`, …). The page just shows a screen for that status.
-
-This matters because anything in the website can be changed by a user with their browser's developer tools.
-If "is it full?" were checked in the browser, someone could skip the check. Database code can't be tampered
+Every action calls one SQL function, which checks the rules and returns
+a `status` (`ok`, `full`, `already_registered`, `no_cups`, …). Database code can't be tampered
 with from outside.
 
 | Function | Called by | Returns |
@@ -164,25 +138,13 @@ waits until the first has finished, then sees the updated count.
 This is tested: 200 simultaneous sign-ups give exactly 150 bookings, and 200 simultaneous check-ins give
 exactly 150 check-ins numbered 1–150 with no duplicates (`npm run test:db`).
 
-### 3. Security
-- **Row Level Security (RLS)** is on for every table. Visitors (the `anon` role) have **no** direct table
-  access. They can't read the list of names or emails, only call the public functions above.
-- **Organisers** log in with Supabase Auth. Being logged in isn't enough: the user must also be in the
-  `admins` table. They can *read* attendees, but changes still go through the `admin_*` functions, so
-  even organisers can't break the rules (e.g. remove someone who has checked in).
-- The website only contains the **publishable (anon) key**, which is safe to be public because of the above.
-  The **service_role / secret key bypasses all of this and must never be put in the website or `.env`.**
-
-### 4. Data kept
-`attendees` holds only: name, NUS email, booking or walk-in, sign-up time, check-in time, number.
-`settings` is a single row: spots, check-in open/close times, walk-in release time.
+### 3. Data kept
+`attendees` table holds only: name, NUS email, booking or walk-in, sign-up time, check-in time, number.
+`settings` table is a single row: spots, check-in open/close times, walk-in release time.
 
 ---
 
 ## Why Supabase
-
-The core requirement is **"never more than 150, even under a rush"**. That needs a database with real
-transactions and locking, which ruled out the simplest options.
 
 | Option | Why not |
 |---|---|
@@ -207,19 +169,10 @@ What Supabase gives us:
 | Risk | Effect | What to do |
 |---|---|---|
 | **Supabase free tier pauses inactive projects** (after about a week without activity) | Every page shows "Couldn't reach the server" | Open the Supabase dashboard a day before **and** on the day; restore the project if it says *Paused* |
-| `schema.sql` changed but not re-run | Errors like "Could not find the function …" | Re-run `supabase/schema.sql` in the SQL Editor (safe to re-run) |
+| `schema.sql` changed but not re-run | Errors like "Could not find the function …" | Re-run `supabase/schema.sql` in the SQL Editor|
 | Env vars missing on Vercel | Site shows "Setup needed" | Set the three `VITE_` variables in Vercel → Settings → Environment Variables, then redeploy |
-| Test data left in | Event opens with fake sign-ups | Clear it before launch (see [After the event](#after-the-event)) |
 | Organiser account not in `admins` | "Not an organiser" on `/admin` | See [Getting access](#getting-access) |
 
-### On the night
-| Risk | Effect | What to do |
-|---|---|---|
-| Weak phone signal in the foyer | Check-in requests fail ("Couldn't reach the server…") | Pages are kept light; people can retry. Fall back to the **printed list** |
-| Forgot to press *Open check-in now* | Everyone sees "Check-in isn't open yet" | Press it on `/admin` |
-| Walk-ins allowed too early | Late booked people find no spots left | Check *Signed up* vs *Checked in* before allowing walk-ins |
-| Someone mistypes their email after walk-ins open | They check in as a walk-in under the typo; their real booking stays unused | The green screen says "Walk-in"; staff can ask "didn't you book?" |
-| Someone shows a screenshot of another person's green screen | They could get food without checking in | Staff glance at the name and number; it's free bubble tea, so the risk is accepted |
 
 ### Known limitations (by design)
 - **Email ownership isn't verified.** The site checks the email's *format*, not that the person owns it
@@ -256,22 +209,13 @@ npm run test:db
 ```
 This starts a throwaway Postgres in Docker (on macOS: `colima start` first), loads `schema.sql`, runs about
 70 rule checks (`supabase/tests/logic_test.sql`), then the 200-at-once race tests. It never touches the real
-project. **Never run `logic_test.sql` in the Supabase SQL Editor**: it wipes data.
+project. 
 
 To test the "full" flow on the real project, `supabase/seed_149.sql` creates 149 fake sign-ups
 (`seed.test.NNN@u.nus.edu`). Remove them with:
 ```sql
 delete from public.attendees where identifier like 'seed.test.%@u.nus.edu';
 ```
-
-### After the event
-Delete everyone's personal data:
-```sql
-truncate public.attendees restart identity;
-update public.settings set checkin_opens = null, checkin_closes = null, release_at = null;
-```
-
----
 
 ## Project structure
 

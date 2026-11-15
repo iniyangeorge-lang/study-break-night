@@ -8,7 +8,7 @@
 export const EVENT = {
   title: 'Study Break Night',
   tagline: 'Free bubble tea + snacks to fuel your finals',
-  date: 'Date TBC (the night before finals)', // TODO: confirm with organisers
+  date: 'Date TBC', // TODO: confirm with organisers
   time: '7–9pm',
   venue: 'COM1 foyer',
   defaultReleaseLabel: '7:45pm', // shown if release_at isn't set in settings yet
